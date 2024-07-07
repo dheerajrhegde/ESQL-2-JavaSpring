@@ -1,0 +1,144 @@
+### WeatherService.msgflow
+
+#### Message Flow Structure:
+- **HttpInputNode**: Listens for HTTP `GET` requests on the `/getWeather` URL path.
+- **ComputeNode**: Processes the incoming message using ESQL logic from `WeatherServiceModule`.
+- **HttpReplyNode**: Sends the processed response back to the HTTP client.
+
+#### Functional Description of Each Node:
+1. **HttpInputNode**:
+   - Listens for incoming HTTP requests.
+   - Forwards the request to `ComputeNode` via the `out` terminal.
+   - Has a `failure` terminal for error handling.
+
+2. **ComputeNode**:
+   - Executes the ESQL code defined in `WeatherServiceModule`.
+   - Processes the incoming message and performs necessary transformations.
+   - Forwards the processed message to `HttpReplyNode` via the `OutTerminal`.
+   - Has a `Failure` terminal for error handling.
+
+3. **HttpReplyNode**:
+   - Sends the processed message back to the HTTP client.
+   - Has a `Failure` terminal for error handling.
+
+#### Pseudocode for Message Flow:
+```
+BEGIN
+    // HttpInputNode: Listen for HTTP GET requests on /getWeather
+    LISTEN FOR HTTP GET REQUEST ON "/getWeather"
+    IF REQUEST RECEIVED THEN
+        // Forward request to ComputeNode
+        FORWARD REQUEST TO ComputeNode
+    ELSE
+        // Handle failure
+        HANDLE FAILURE
+    END IF
+
+    // ComputeNode: Execute WeatherServiceModule ESQL code
+    EXECUTE WeatherServiceModule.Main()
+    IF PROCESSING SUCCESSFUL THEN
+        // Forward processed message to HttpReplyNode
+        FORWARD PROCESSED MESSAGE TO HttpReplyNode
+    ELSE
+        // Handle failure
+        HANDLE FAILURE
+    END IF
+
+    // HttpReplyNode: Send processed message back to HTTP client
+    SEND RESPONSE TO HTTP CLIENT
+    IF RESPONSE SUCCESSFUL THEN
+        // Success
+    ELSE
+        // Handle failure
+        HANDLE FAILURE
+    END IF
+END
+```
+
+### WeatherServiceModule.esql
+
+#### ESQL Code Logic:
+- **Main Function**: Constructs an API URL, calls a REST API, processes the response, and logs the weather information.
+- **CALL_REST_API Function**: Sets up and calls the REST API, returning the response.
+- **PrintWeatherInfo Procedure**: Logs the weather information.
+- **LogEvent Procedure**: Logs events.
+
+#### Functional Description of ESQL Statements:
+1. **Main Function**:
+   - Constructs the API URL.
+   - Calls the `CALL_REST_API` function to get the API response.
+   - Parses the JSON response to extract weather information.
+   - Logs the extracted weather information.
+   - Returns `FALSE` to indicate no output is needed.
+
+2. **CALL_REST_API Function**:
+   - Sets up the HTTP request to call the REST API.
+   - Propagates the request and retrieves the response.
+   - Returns the response BLOB.
+
+3. **PrintWeatherInfo Procedure**:
+   - Logs the temperature and weather code.
+
+4. **LogEvent Procedure**:
+   - Logs the event message.
+
+#### Pseudocode for ESQL Code:
+```
+MODULE WeatherServiceModule
+    FUNCTION Main RETURNS BOOLEAN
+    BEGIN
+        // Declare variables
+        DECLARE apiUrl, apiResponse, weatherData, temperature, weatherCode
+
+        // Construct the API URL
+        SET apiUrl = 'https://api.open-meteo.com/v1/forecast?latitude=51.5074&longitude=-0.1278&current_weather=true'
+
+        // Call the REST API and get the response
+        SET apiResponse = CALL CALL_REST_API(apiUrl)
+
+        // Convert the response to a string
+        SET weatherData = CONVERT apiResponse TO STRING
+
+        // Parse the JSON response
+        SET weatherJson = PARSE JSON weatherData
+
+        // Extract temperature and weather code
+        SET temperature = weatherJson.current_weather.temperature
+        SET weatherCode = weatherJson.current_weather.weathercode
+
+        // Log the weather information
+        CALL PrintWeatherInfo(temperature, weatherCode)
+
+        // Return FALSE (no output needed)
+        RETURN FALSE
+    END
+
+    FUNCTION CALL_REST_API(url) RETURNS BLOB
+    BEGIN
+        // Set up the HTTP request
+        SET HTTP.RequestURL = url
+        SET HTTP.Method = 'GET'
+        SET HTTP.RequestHeader."Content-Type" = 'application/json'
+
+        // Call the REST API
+        PROPAGATE TO TERMINAL 'out1'
+
+        // Return the response
+        RETURN HTTP.Response
+    END
+
+    PROCEDURE PrintWeatherInfo(temp, code)
+    BEGIN
+        // Log the weather information
+        CALL LogEvent('Weather Information:')
+        CALL LogEvent('Temperature: ' + temp + '°C')
+        CALL LogEvent('Weather Code: ' + code)
+    END
+
+    PROCEDURE LogEvent(eventMessage)
+    BEGIN
+        // Log the event message
+        LOG EVENT eventMessage
+    END
+END MODULE
+```

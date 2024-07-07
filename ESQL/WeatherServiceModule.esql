@@ -1,0 +1,71 @@
+-- Define the ESQL module
+CREATE COMPUTE MODULE WeatherServiceModule
+
+    -- Define the main function to be executed
+    CREATE FUNCTION Main() RETURNS BOOLEAN
+    BEGIN
+        -- Declare variables for processing
+        DECLARE apiUrl CHARACTER;
+        DECLARE apiResponse BLOB;
+        DECLARE weatherData CHARACTER;
+        DECLARE temperature FLOAT;
+        DECLARE weatherCode INTEGER;
+
+        -- Construct the REST API URL for Open-Meteo
+        SET apiUrl = 'https://api.open-meteo.com/v1/forecast?latitude=51.5074&longitude=-0.1278&current_weather=true';
+
+        -- Call the REST API and get the response
+        SET apiResponse = CALL_REST_API(apiUrl);
+
+        -- Convert the response BLOB to a CHARACTER string for parsing
+        SET weatherData = CAST(apiResponse AS CHARACTER CCSID InputRoot.Properties.CodedCharSetId);
+
+        -- Parse the JSON response to extract key information
+        DECLARE weatherJson REFERENCE TO InputRoot.JSON.Data;
+        CREATE LASTCHILD OF Environment DOMAIN('JSON');
+        SET Environment.JSON.Data = weatherData;
+
+        -- Extract key information from the JSON response
+        SET temperature = FIELDVALUE(Environment.JSON.Data.current_weather.temperature);
+        SET weatherCode = FIELDVALUE(Environment.JSON.Data.current_weather.weathercode);
+
+        -- Log the extracted information
+        CALL PrintWeatherInfo(temperature, weatherCode);
+
+        -- Clear the output tree as no output is needed
+        RETURN FALSE;
+    END;
+
+    -- Function to call the REST API
+    CREATE FUNCTION CALL_REST_API(IN url CHARACTER) RETURNS BLOB
+    BEGIN
+        -- Set up the HTTP request to call the REST API
+        SET OutputLocalEnvironment.Destination.HTTP.RequestURL = url;
+        SET OutputLocalEnvironment.Destination.HTTP.Method = 'GET';
+        SET OutputLocalEnvironment.Destination.HTTP.RequestHeader."Content-Type" = 'application/json';
+
+        -- Call the REST API
+        PROPAGATE TO TERMINAL 'out1';
+
+        -- Return the response received from the REST API
+        RETURN InputRoot.BLOB.BLOB;
+    END;
+
+    -- Procedure to print the weather information
+    CREATE PROCEDURE PrintWeatherInfo(IN temp FLOAT, IN code INTEGER)
+    BEGIN
+        -- Log the weather information
+        CALL LogEvent('Weather Information:');
+        CALL LogEvent('Temperature: ' || CAST(temp AS CHARACTER) || '°C');
+        CALL LogEvent('Weather Code: ' || CAST(code AS CHARACTER));
+    END;
+
+    -- Procedure to log events (simple example)
+    CREATE PROCEDURE LogEvent(IN eventMessage CHARACTER)
+    BEGIN
+        -- Log the event message (for demonstration, print to console)
+        -- In actual implementation, use the appropriate logging mechanism
+        LOG EVENT SEVERITY 1 CATALOG 'User' MESSAGE 1000 VALUES(eventMessage);
+    END;
+
+END MODULE;

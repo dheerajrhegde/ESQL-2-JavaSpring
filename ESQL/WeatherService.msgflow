@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<msgflow xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="platform:/plugin/com.ibm.etools.mft/schema/msgflow.xsd">
+    <nodes>
+        <com.ibm.etools.mft.compute nodeType="Compute" name="ComputeNode">
+            <esqlModule>WeatherServiceModule</esqlModule>
+            <inputTerminals>
+                <inputTerminal terminalName="InTerminal" connection="HttpInputNode.out" />
+            </inputTerminals>
+            <outputTerminals>
+                <outputTerminal terminalName="OutTerminal" />
+                <outputTerminal terminalName="Failure" />
+            </outputTerminals>
+        </com.ibm.etools.mft.compute>
+
+        <com.ibm.etools.mft.http nodeType="HttpInput" name="HttpInputNode">
+            <inputTerminals>
+                <inputTerminal terminalName="InTerminal" />
+            </inputTerminals>
+            <outputTerminals>
+                <outputTerminal terminalName="out" connection="ComputeNode.InTerminal" />
+                <outputTerminal terminalName="failure" />
+            </outputTerminals>
+            <basicProperties>
+                <basicProperty name="Listener" value="HTTP_Listener" />
+                <basicProperty name="URLPath" value="/getWeather" />
+                <basicProperty name="Method" value="GET" />
+            </basicProperties>
+        </com.ibm.etools.mft.http>
+
+        <com.ibm.etools.mft.http nodeType="HttpReply" name="HttpReplyNode">
+            <inputTerminals>
+                <inputTerminal terminalName="InTerminal" connection="ComputeNode.OutTerminal" />
+            </inputTerminals>
+            <outputTerminals>
+                <outputTerminal terminalName="OutTerminal" />
+                <outputTerminal terminalName="Failure" />
+            </outputTerminals>
+        </com.ibm.etools.mft.http>
+    </nodes>
+</msgflow>
